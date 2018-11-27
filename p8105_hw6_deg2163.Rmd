@@ -29,8 +29,7 @@ homicide_data =
          resolved = as.numeric(disposition == "Closed by arrest"), 
          victim_age = as.numeric(victim_age),
          victim_race = ifelse(victim_race == "White", "White", "Non-White"), 
-         victim_race = fct_relevel(victim_race, "White"), 
-         victim_sex = factor(victim_sex, c("Male", "Female", "Unknown"))) %>% 
+         victim_race = fct_relevel(victim_race, "White")) %>% 
   filter(city_state != "Dallas, TX" & city_state != "Phoenix, AZ" & 
          city_state != "Kansas City, MO" & city_state != "Tulsa, AL") %>% 
   select(city_state, resolved, victim_age, victim_race, victim_sex)
@@ -81,16 +80,20 @@ nest_glm_res %>%
 
 nest_glm_res %>% 
   arrange(desc(OR)) %>% 
-  mutate(city_state = forcats::fct_inorder(city_state)) %>% 
+  mutate(city_state = fct_inorder(city_state)) %>% 
   ggplot(aes(x = city_state, y = OR)) + 
-  geom_point(aes(color = blue)) + 
-  geom_errorbar(aes(ymax = lower_limit, ymin = upper_limit) + 
+  geom_point() + 
+  geom_errorbar(aes(ymax = lower_limit, ymin = upper_limit)) +
   labs(
     x = "Location (City & State)", 
-    y = "Estimated Odds Ratio of Resolved Cases for Whites Compared to Non-Whites", 
-    title = "Estimated Odds Ratio of Resolved Homicide Cases for Whites Compared to Non-Whites throughout the United Sates"
-  ) + 
+    y = "Estimated Odds Ratio of Resolved Cases for Non-Whites Compared to Whites", 
+    title = "Estimated Odds Ratio of Resolved Homicide Cases for Non-Whites Compared to Whites throughout the United Sates"
+  ) +
   theme(axis.text.x = element_text(angle = 80, hjust = 1))
 ```
+
+Plot Commentary: 
+
+
 
 
