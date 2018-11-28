@@ -25,7 +25,7 @@ theme_set(theme_bw() + theme(legend.position = "bottom"))
 
 ### **Problem 1**
 ```{r}
-## Import data 
+## Import data & made it tidy 
 homicide_data = 
   read_csv("https://raw.githubusercontent.com/washingtonpost/data-homicides/master/homicide-data.csv") %>% 
   janitor::clean_names() %>% 
@@ -39,6 +39,7 @@ homicide_data =
   select(city_state, resolved, victim_age, victim_race, victim_sex)
 ```
 
+Logistic Regression for Baltimore, MD
 ```{r}
 ## Used the glm function to fit a logisitic regression with resolved vs unresolved as the outcome and victim age, sex and race (as just defined) as predictors. 
 fit_logistic = 
@@ -48,6 +49,7 @@ fit_logistic =
       data = ., 
       family = binomial())
 
+## Estimate and confidence intervals of thee adjusted ORs
 fit_logistic %>% 
   broom::tidy() %>% 
   filter(term == "victim_raceNon-White") %>% 
@@ -58,13 +60,15 @@ fit_logistic %>%
   knitr::kable(digits = 3)
 ```
 
+Estimated ORs for Each City 
 ```{r}
+## Nest and unnest to create a data frame 
 nest_glm_res =
   homicide_data %>% 
   group_by(city_state) %>% 
   nest() %>% 
-  mutate(models = map(data, ~glm(resolved ~  victim_race + victim_age + victim_sex, 
-                           data = .x, family = binomial)),
+  mutate(models = map(data, ~glm(resolved ~  victim_race + victim_age + victim_sex,
+                                 data = .x, family = binomial)),
          models = map(models, broom::tidy)) %>% 
   select(-data) %>% 
   unnest() %>% 
@@ -75,9 +79,11 @@ nest_glm_res =
   filter(term == "victim_raceNon-White") %>% 
   select(city_state, term, OR, lower_limit, upper_limit)
 
+## Dataframe with ORs and CI
 nest_glm_res %>% 
   knitr::kable(digits = 3)
 
+## Plot showing the estimated ORs and CIs for each city 
 nest_glm_res %>% 
   arrange(desc(OR)) %>% 
   mutate(city_state = fct_inorder(city_state)) %>% 
@@ -86,7 +92,7 @@ nest_glm_res %>%
   geom_errorbar(aes(ymax = lower_limit, ymin = upper_limit)) +
   labs(
     x = "Location (City & State)", 
-    y = "Estimated Odds Ratio of Resolved Cases for Non-Whites Compared to Whites", 
+    y = "Estimated Odds Ratio", 
     title = "Estimated Odds Ratio of Resolved Homicide Cases for Non-Whites Compared to Whites throughout the United Sates"
   ) +
   theme(axis.text.x = element_text(angle = 80, hjust = 1))
@@ -94,20 +100,12 @@ nest_glm_res %>%
 
 Plot Commentary: 
 
+* The plot shows the decreasing odds ratios for the resolved homicide cases for Non-White folks compared to White folks sorted by city and state. 
+* Tampa, FL has the highest OR
+* Durham, NC has the widest confidence interval 
+* Boston, MA has the smallest OR
+
 ### **Problem 2**
-Load and clean the data for regression analysis (i.e. convert numeric to factor where appropriate, check for missing data, etc.).
-
-Propose a regression model for birthweight. This model may be based on a hypothesized structure for the factors that underly birthweight, on a data-driven model-building process, or a combination of the two. Describe your modeling process and show a plot of model residuals against fitted values – use add_predictions and add_residuals in making this plot.
-
-Compare your model to two others:
-
-One using length at birth and gestational age as predictors (main effects only)
-One using head circumference, length, sex, and all interactions (including the three-way interaction) between these
-Make this comparison in terms of the cross-validated prediction error; use crossv_mc and functions in purrr as appropriate.
-
-Note that although we expect your model to be reasonable, model building itself is not a main idea of the course and we don’t necessarily expect your model to be “optimal”.
-
-
 ```{r}
 ## Import the data
 birthweight = 
@@ -144,20 +142,21 @@ birthweight =
     )
 ```
 
+### **Model 1** 
+
 Description of the modeling process: 
 
-* Mother's race, mother's age, and the the length of the baby are some factors that could potentially affect the baby's birthweight. 
+* I used mother's race, mother's age, and the the length of the baby are some factors that could potentially affect the baby's birthweight. I included race because some research shows that race can play a role in the baby's birthweight, in addition to morther's age and length of the baby. Since "bwt" is continuous, I used "lm" as the basis for the model. 
+
 ```{r}
-## Need to add labels and make it pretty 
+## Model 1 
 model_1 = lm(bwt ~ mrace + blength + momage, data = birthweight)
 
 model_1 %>% 
   broom::tidy() %>% 
   knitr::kable(digits = 3)
 
-modelr::add_residuals(birthweight, model_1)
-modelr::add_predictions(birthweight, model_1)
-
+## Plot showing residuals against fitted values for Model 1 
 birthweight %>% 
   add_residuals(model_1) %>%
   add_predictions(model_1) %>% 
@@ -170,16 +169,19 @@ birthweight %>%
   ) 
 ```
 
-
+### Model 2 
 ```{r}
-## One using length at birth and gestational age as predictors (main effects only)
+## Length at birth and gestational age as predictors (main effects only)
 model_2 = lm(bwt ~ blength + gaweeks, data = birthweight) 
 
 model_2 %>% 
   broom::tidy() %>% 
   knitr::kable(digits = 3)
+```
 
-##One using head circumference, length, sex, and all interactions (including the three-way interaction) between these
+### Model 3
+```{r}
+## Head circumference, length, sex, and all interactions (including the three-way interaction) between these
 model_3 = lm(bwt ~ bhead + blength + babysex + bhead * blength + bhead * babysex + blength * babysex + bhead * blength * babysex, data = birthweight)
 
 model_3 %>% 
@@ -187,11 +189,12 @@ model_3 %>%
   knitr::kable(digits = 3)
 ```
 
-
+Cross Validation
 ```{r}
-cv_df =
- crossv_mc(birthweight, 100)
+## Cross validation 
+cv_df = crossv_mc(birthweight, 100)
 
+## Mapping 
 cv_df = 
   cv_df %>% 
   mutate(model_1 = map(train, ~lm(bwt ~ mrace + blength + momage, data = .x)),
@@ -201,6 +204,7 @@ cv_df =
          rmse_model_2 = map2_dbl(model_2, test, ~rmse(model = .x, data = .y)),
          rmse_model_3 = map2_dbl(model_3, test, ~rmse(model = .x, data = .y)))
 
+## Cross Validation Plot 
 cv_df %>% 
   select(starts_with("rmse")) %>% 
   gather(key = model, value = rmse) %>% 
@@ -216,3 +220,4 @@ cv_df %>%
 ```
 
 
+Plot Commentary: The prediction error between the 1st model I proposed and the 2nd model is fairly similar. However, the prediction error for the 3rd model is much smaller than the first two models. Therefore, the third model may be preferred. 
