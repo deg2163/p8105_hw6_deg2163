@@ -219,5 +219,4 @@ cv_df %>%
   ) 
 ```
 
-
 Plot Commentary: The prediction error between the 1st model I proposed and the 2nd model is fairly similar. However, the prediction error for the 3rd model is much smaller than the first two models. Therefore, the third model may be preferred. 
